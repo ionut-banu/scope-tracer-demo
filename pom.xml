@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.ionutbanu</groupId>
+  <artifactId>scope-tracer-demo</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+
+  <name>scope-tracer-demo</name>
+  <description>
+    Standalone runnable examples for scope-tracer: visualising Java structured
+    concurrency (StructuredTaskScope) task trees with JFR. Depends on the
+    published scope-tracer artifacts from Maven Central.
+  </description>
+  <url>https://github.com/ionut-banu/scope-tracer-demo</url>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <name>Ionut Banu</name>
+      <url>https://github.com/ionut-banu</url>
+    </developer>
+  </developers>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.release>26</maven.compiler.release>
+
+    <!-- Published scope-tracer version on Maven Central. -->
+    <!-- TODO: bump when a newer scope-tracer release is available. -->
+    <scope-tracer.version>0.2.0</scope-tracer.version>
+
+    <exec.plugin.version>3.5.0</exec.plugin.version>
+    <dependency.plugin.version>3.8.1</dependency.plugin.version>
+    <compiler.plugin.version>3.13.0</compiler.plugin.version>
+
+    <!-- Default demo; override via a -P&lt;demo&gt; profile (see below). -->
+    <demo.mainClass>com.ionutbanu.scopetracer.demo.ParallelFetchDemo</demo.mainClass>
+
+    <!-- Stable on-disk path to the agent fat-jar, copied by the
+         maven-dependency-plugin (see build/plugins below). -->
+    <agent.jar>${project.build.directory}/agent/scope-tracer-agent.jar</agent.jar>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.ionutbanu</groupId>
+      <artifactId>scope-tracer-core</artifactId>
+      <version>${scope-tracer.version}</version>
+    </dependency>
+
+    <!-- Provides JfrParser + HtmlRenderer so the demos can turn a .jfr file
+         into a self-contained HTML report in-process. -->
+    <dependency>
+      <groupId>com.ionutbanu</groupId>
+      <artifactId>scope-tracer-analyzer</artifactId>
+      <version>${scope-tracer.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>2.0.18</version>
+    </dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.5.18</version>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>scope-tracer-demo</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>${compiler.plugin.version}</version>
+        <configuration>
+          <release>${maven.compiler.release}</release>
+          <!-- StructuredTaskScope is a preview API on JDK 26. -->
+          <compilerArgs>
+            <arg>--enable-preview</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+
+      <!-- Copies the agent fat-jar (classifier "agent") to a stable path so
+           the run scripts and the AgentDemo can attach it with -javaagent. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>${dependency.plugin.version}</version>
+        <executions>
+          <execution>
+            <id>copy-agent</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
+            <configuration>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>com.ionutbanu</groupId>
+                  <artifactId>scope-tracer-agent</artifactId>
+                  <version>${scope-tracer.version}</version>
+                  <classifier>agent</classifier>
+                  <type>jar</type>
+                  <outputDirectory>${project.build.directory}/agent</outputDirectory>
+                  <destFileName>scope-tracer-agent.jar</destFileName>
+                </artifactItem>
+                <!-- Boot-Class-Path in the agent MANIFEST.MF references the
+                     original versioned filename. Both must exist side-by-side. -->
+                <artifactItem>
+                  <groupId>com.ionutbanu</groupId>
+                  <artifactId>scope-tracer-agent</artifactId>
+                  <version>${scope-tracer.version}</version>
+                  <classifier>agent</classifier>
+                  <type>jar</type>
+                  <outputDirectory>${project.build.directory}/agent</outputDirectory>
+                </artifactItem>
+              </artifactItems>
+              <overWriteReleases>true</overWriteReleases>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+       <!-- exec:exec launches a fresh JVM, so enable-preview (and, for the
+         agent profile, -javaagent) can be passed. exec:java cannot. -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>${exec.plugin.version}</version>
+        <configuration>
+          <executable>java</executable>
+          <arguments>
+            <argument>--enable-preview</argument>
+            <argument>-classpath</argument>
+            <classpath/>
+            <argument>${demo.mainClass}</argument>
+          </arguments>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>parallel-fetch</id>
+      <properties>
+        <demo.mainClass>com.ionutbanu.scopetracer.demo.ParallelFetchDemo</demo.mainClass>
+      </properties>
+    </profile>
+    <profile>
+      <id>fail-fast</id>
+      <properties>
+        <demo.mainClass>com.ionutbanu.scopetracer.demo.FailFastDemo</demo.mainClass>
+      </properties>
+    </profile>
+    <profile>
+      <id>nested-scopes</id>
+      <properties>
+        <demo.mainClass>com.ionutbanu.scopetracer.demo.NestedScopesDemo</demo.mainClass>
+      </properties>
+    </profile>
+    <profile>
+      <id>order-processing</id>
+      <properties>
+        <demo.mainClass>com.ionutbanu.scopetracer.demo.OrderProcessingDemo</demo.mainClass>
+      </properties>
+    </profile>
+
+    <!-- mvn -Pagent package exec:exec  ->  runs AgentDemo under -javaagent.
+         The agent traces plain StructuredTaskScope with zero code changes. -->
+    <profile>
+      <id>agent</id>
+      <properties>
+        <demo.mainClass>com.ionutbanu.scopetracer.demo.AgentDemo</demo.mainClass>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <configuration>
+              <executable>java</executable>
+              <arguments>
+                <argument>--enable-preview</argument>
+                <argument>-javaagent:${agent.jar}</argument>
+                <argument>-classpath</argument>
+                <classpath/>
+                <argument>com.ionutbanu.scopetracer.demo.AgentDemo</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>

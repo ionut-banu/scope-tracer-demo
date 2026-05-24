@@ -1,0 +1,7 @@
+target/
+*.jfr
+*.html
+.idea/
+*.iml
+.vscode/
+.DS_Store
