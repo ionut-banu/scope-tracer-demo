@@ -11,7 +11,7 @@ to clone or build scope-tracer itself.
 
 > Companion article:
 > *"Tracing Java Structured Concurrency Without Touching a Line of Code"*
-> — https://medium.com/@ionutbanu/PLACEHOLDER-SLUG
+> — https://ionutbanu.medium.com/tracing-java-structured-concurrency-without-touching-a-line-of-code-4002ba6ef704
 
 ---
 
